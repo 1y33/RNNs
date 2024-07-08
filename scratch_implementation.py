@@ -42,6 +42,41 @@ class RNN(nn.Module):
         output = self.fc(output[:,-1,:])
         return output
 
+class DeepRNN(nn.Module):
+    def __init__(self,input_size,hidden_size,output_size,num_layers):
+        super().__init__()
+        self.num_layers = num_layers
+        self.rnns = nn.Sequential(*RNN_Cell(input_size,hidden_size,output_size,))
+
+    def forward(self,x):
+        outputs = x
+        HS = []
+        for i in range(self.num_layers):
+            outputs,hs = self.rnns[i](outputs,HS[i])
+            outputs = torch.stack(outputs,0)
+        return outputs,HS
+
+
+class BidirectionalRNN(nn.Module):
+    def __init__(self,input_size,output_size,num_layers,hidden_dim):
+        super().__init__()
+        self.input_size = input_size
+        self.output_size = output_size
+        self.num_layers = num_layers
+        self.hidden_dim = hidden_dim
+
+        self.f_rnn = RNN_Cell(self.input_size,self.hidden_dim,self.output_size)
+        self.b_rnn = RNN_Cell(self.input_size,self.hidden_dim,self.output_size)
+        self.hidden_dim *= 2
+
+    def forward(self,inputs):
+        fh,bh = None,None
+        f_outputs, f_h = self.f_rnn(inputs,fh)
+        b_outputs, b_h = self.b_rnn(reversed(inputs),bh)
+
+        outputs = [torch.cat((f,b),-1) for f,b in zip(f_outputs,reversed(b_outputs))]
+        return outputs,(f_h,b_h)
+
 
 class LSTM_cell(nn.Module):
     def __init__(self,input_size,output_size,hidden_dim,num_layers):
@@ -86,4 +121,5 @@ class LSTM_cell(nn.Module):
             outputs.append(H)
 
         return outputs,(H,C)
+
 
